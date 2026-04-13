@@ -56,6 +56,7 @@ export function makeApiV1Router(io: SocketIOServer) {
         labels: true,
       },
     })
+    if (!room) return res.status(404).json({ error: 'not_found' })
     return res.json(room)
   })
 

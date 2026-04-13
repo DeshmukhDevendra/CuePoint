@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/stores/auth'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button, Card, Input } from '@/components/ui'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 
 interface TeamSummary {
   id: string
@@ -21,8 +21,9 @@ export function TeamsPage() {
   const qc = useQueryClient()
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
+  const [createError, setCreateError] = useState<string | null>(null)
 
-  const { data: teams = [], isLoading } = useQuery({
+  const { data: teams = [], isLoading, isError } = useQuery({
     queryKey: ['teams'],
     queryFn: () => api.get<TeamSummary[]>('/teams'),
   })
@@ -33,7 +34,11 @@ export function TeamsPage() {
       qc.invalidateQueries({ queryKey: ['teams'] })
       setCreating(false)
       setNewName('')
+      setCreateError(null)
       navigate(`/teams/${team.id}`)
+    },
+    onError: (err) => {
+      setCreateError(err instanceof ApiError ? err.message : 'Failed to create team. Please try again.')
     },
   })
 
@@ -91,17 +96,22 @@ export function TeamsPage() {
               <Button
                 type="button"
                 className="bg-muted text-foreground"
-                onClick={() => setCreating(false)}
+                onClick={() => { setCreating(false); setCreateError(null) }}
               >
                 Cancel
               </Button>
             </form>
+            {createError && <p className="mt-2 text-xs text-destructive">{createError}</p>}
           </Card>
         )}
 
         {isLoading && <p className="text-muted-foreground">Loading…</p>}
 
-        {!isLoading && teams.length === 0 && (
+        {isError && (
+          <p className="text-sm text-destructive">Could not load teams. Check your connection and try again.</p>
+        )}
+
+        {!isLoading && !isError && teams.length === 0 && (
           <Card className="text-center text-muted-foreground py-8 space-y-2">
             <p>No teams yet.</p>
             <p className="text-xs">Create a team to collaborate with others on shared rooms.</p>

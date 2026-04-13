@@ -1,6 +1,6 @@
 import { Router, type Request } from 'express'
 import { z } from 'zod'
-import { prisma } from '@cuepoint/db'
+import { prisma, Prisma } from '@cuepoint/db'
 import { assertRoomControl } from '../auth/roomControl.js'
 import type { Server as SocketIOServer } from 'socket.io'
 import { S2C } from '@cuepoint/shared'
@@ -44,8 +44,11 @@ export function makeLabelsRouter(io: SocketIOServer) {
       })
       broadcast(room.id, S2C.ROOM_STATE, await fullRoomSnapshot(room.id))
       return res.status(201).json(label)
-    } catch {
-      return res.status(409).json({ error: 'label_name_taken' })
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        return res.status(409).json({ error: 'label_name_taken' })
+      }
+      throw err
     }
   })
 

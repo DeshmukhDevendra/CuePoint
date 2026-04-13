@@ -59,6 +59,10 @@ export function RoomsPage() {
     onSuccess: (room) => {
       navigate(`/rooms/${room.id}`)
     },
+    onError: () => {
+      setCreateError('Could not create guest room. Please try again.')
+      setCreating(true) // show the error card
+    },
   })
 
   async function onCreateSubmit(e: FormEvent) {

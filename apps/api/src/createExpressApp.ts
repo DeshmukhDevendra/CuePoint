@@ -19,7 +19,7 @@ import { logsRouter } from './routes/logs.js'
 import { analyticsRouter } from './routes/analytics.js'
 import { webhooksRouter } from './routes/webhooks.js'
 import { makeApiV1Router } from './routes/apiV1.js'
-import { makeGeneralLimiter } from './lib/rateLimiter.js'
+import { makeGeneralLimiter, makeAuthLimiter } from './lib/rateLimiter.js'
 import { teamsRouter } from './routes/teams.js'
 
 export type CuepointAppBundle = {
@@ -50,7 +50,7 @@ export function createCuepointAppBundle(): CuepointAppBundle {
 
   app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }))
 
-  app.use('/api/auth', authRouter)
+  app.use('/api/auth', makeAuthLimiter(), authRouter)
   app.use('/api/teams', teamsRouter)
   app.use('/api/rooms', roomsRouter)
   app.use('/api/public/output-links', makePublicOutputLinksRouter())

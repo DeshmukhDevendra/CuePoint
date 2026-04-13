@@ -88,14 +88,20 @@ export function createSocketServer(httpServer: HTTPServer): SocketIOServer {
 
     socket.on(C2S.CURSOR_MOVE, (payload: CursorMovePayload & { userId: string; name: string; color: string }) => {
       if (typeof payload?.roomId !== 'string') return
+      // Security: only relay if this socket is actually in that room
+      if (!socket.rooms.has(`room:${payload.roomId}`)) return
+      // Validate coordinates are finite numbers in [0, 1] range
+      const x = typeof payload.x === 'number' && Number.isFinite(payload.x) ? Math.max(0, Math.min(1, payload.x)) : null
+      const y = typeof payload.y === 'number' && Number.isFinite(payload.y) ? Math.max(0, Math.min(1, payload.y)) : null
+      if (x === null || y === null) return
       // Relay to all others in the room (not sender)
       socket.to(`room:${payload.roomId}`).emit(S2C.CURSOR_MOVED, {
-        userId: payload.userId,
-        name: payload.name,
+        userId: typeof payload.userId === 'string' ? payload.userId.slice(0, 64) : '',
+        name: typeof payload.name === 'string' ? payload.name.slice(0, 100) : '',
         color: payload.color,
         roomId: payload.roomId,
-        x: payload.x,
-        y: payload.y,
+        x,
+        y,
         over: payload.over,
       })
     })

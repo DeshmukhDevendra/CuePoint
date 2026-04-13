@@ -22,6 +22,27 @@ export function makeGeneralLimiter() {
   })
 }
 
+/** Strict limit for auth endpoints: 10 req / min per IP to resist brute-force */
+export function makeAuthLimiter() {
+  const client = getRedis()
+  return rateLimit({
+    windowMs: 60_000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'too_many_requests' },
+    ...(client
+      ? {
+          store: new RedisStore({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            sendCommand: (...args: string[]) => (client as any).call(...args),
+            prefix: 'rl:auth:',
+          }),
+        }
+      : {}),
+  })
+}
+
 /** Strict limit for external API v1: 60 req / min per API key */
 export function makeApiV1Limiter() {
   const client = getRedis()

@@ -30,7 +30,9 @@ export interface CSVTimerRow {
 }
 
 export function parseTimersCSV(text: string): CSVTimerRow[] | { error: string } {
-  const lines = text.trim().split(/\r?\n/)
+  const allLines = text.trim().split(/\r?\n/)
+  // Keep the header plus any non-blank data lines (blank lines cause confusing parse errors)
+  const lines = allLines[0] ? [allLines[0], ...allLines.slice(1).filter((l) => l.trim() !== '')] : []
   if (lines.length < 2) return { error: 'File is empty or has no data rows.' }
 
   const header = lines[0]!.toLowerCase().split(',').map((h) => h.trim())

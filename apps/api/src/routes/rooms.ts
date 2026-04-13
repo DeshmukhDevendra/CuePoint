@@ -109,10 +109,17 @@ roomsRouter.post('/:roomId/claim', requireUser, async (req, res) => {
   return res.json(updated)
 })
 
-// Get a single room (with timers + messages)
+// Get a single room (with timers + messages) — accessible by owner or any team member
 roomsRouter.get('/:roomId', requireUser, async (req, res) => {
   const room = await prisma.room.findFirst({
-    where: { id: req.params['roomId'], ownerId: req.user!.id, deletedAt: null },
+    where: {
+      id: req.params['roomId'],
+      deletedAt: null,
+      OR: [
+        { ownerId: req.user!.id },
+        { team: { members: { some: { userId: req.user!.id } } } },
+      ],
+    },
     include: {
       timers: { orderBy: { order: 'asc' } },
       messages: { orderBy: { order: 'asc' } },

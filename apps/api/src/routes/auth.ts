@@ -12,7 +12,8 @@ authRouter.post('/signup', async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_input', details: parsed.error.flatten() })
   }
-  const { email, password, name } = parsed.data
+  const { password, name } = parsed.data
+  const email = parsed.data.email.toLowerCase()
 
   const existing = await prisma.user.findUnique({ where: { email } })
   if (existing) {
@@ -36,7 +37,8 @@ authRouter.post('/login', async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_input' })
   }
-  const { email, password } = parsed.data
+  const { password } = parsed.data
+  const email = parsed.data.email.toLowerCase()
 
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user) {
