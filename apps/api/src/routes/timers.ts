@@ -232,7 +232,12 @@ export function makeTimersRouter(io: SocketIOServer) {
         },
       })
     } else if (parsed.data.action === 'stop' || parsed.data.action === 'expire') {
-      const elapsed = timer.elapsedMs + (timer.startedAt ? now.getTime() - timer.startedAt.getTime() : 0)
+      // Only add running time if the timer was actually running.
+      // Pausing sets isRunning=false but does NOT clear startedAt in the DB,
+      // so we must check isRunning before using startedAt to avoid double-counting.
+      const elapsed = timer.isRunning && timer.startedAt
+        ? timer.elapsedMs + now.getTime() - timer.startedAt.getTime()
+        : timer.elapsedMs
       void prisma.analyticsEvent.create({
         data: {
           roomId: room.id,

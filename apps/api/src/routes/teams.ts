@@ -128,9 +128,11 @@ teamsRouter.delete('/:teamId', async (req, res) => {
   const membership = await getMembership(req.user!.id, req.params['teamId']!)
   if (!membership || membership.role !== 'OWNER') return res.status(403).json({ error: 'forbidden' })
 
-  // Disassociate rooms before deleting team
-  await prisma.room.updateMany({ where: { teamId: req.params['teamId'] }, data: { teamId: null } })
-  await prisma.team.delete({ where: { id: req.params['teamId'] } })
+  // Disassociate rooms and delete team atomically
+  await prisma.$transaction([
+    prisma.room.updateMany({ where: { teamId: req.params['teamId'] }, data: { teamId: null } }),
+    prisma.team.delete({ where: { id: req.params['teamId'] } }),
+  ])
   return res.status(204).end()
 })
 

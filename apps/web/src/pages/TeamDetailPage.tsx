@@ -289,7 +289,10 @@ export function TeamDetailPage() {
             {canAdmin && (
               <Button
                 className="text-sm"
-                onClick={() => setShowInviteForm((v) => !v)}
+                onClick={() => {
+                  setShowInviteForm((v) => !v)
+                  setInviteError(null)
+                }}
               >
                 {showInviteForm ? 'Cancel' : '+ Invite'}
               </Button>

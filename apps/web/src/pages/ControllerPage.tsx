@@ -49,11 +49,12 @@ function MoreMenu({ roomId, me }: { roomId: string; me: { id: string } | null })
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    function onClick(e: MouseEvent) {
+    // Use pointerdown so the dropdown closes on both mouse clicks and touch taps outside
+    function onPointerDown(e: PointerEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [])
 
   const links = [

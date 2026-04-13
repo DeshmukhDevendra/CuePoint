@@ -29,6 +29,14 @@ roomsRouter.post('/', requireUser, async (req, res) => {
   }
   const { title, timezone, teamId } = parsed.data
 
+  // Security: if teamId provided, verify the user is actually a member of that team
+  if (teamId) {
+    const membership = await prisma.teamMember.findUnique({
+      where: { userId_teamId: { userId: req.user!.id, teamId } },
+    })
+    if (!membership) return res.status(403).json({ error: 'forbidden' })
+  }
+
   // Plan enforcement: check room limit
   if (teamId) {
     const team = await prisma.team.findUnique({ where: { id: teamId }, select: { plan: true } })
