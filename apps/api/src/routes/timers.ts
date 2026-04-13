@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { prisma } from '@cuepoint/db'
-import { CreateTimerSchema, UpdateTimerSchema, TimerActionSchema, ReorderTimersSchema } from '@cuepoint/shared'
+import { CreateTimerSchema, UpdateTimerSchema, TimerActionSchema, ReorderTimersSchema, PLAN_LIMITS, withinLimit } from '@cuepoint/shared'
 import type { Server as SocketIOServer } from 'socket.io'
 import { S2C } from '@cuepoint/shared'
 import { assertRoomControl } from '../auth/roomControl.js'
@@ -66,6 +66,18 @@ export function makeTimersRouter(io: SocketIOServer) {
     const parsed = CreateTimerSchema.omit({ roomId: true }).safeParse(req.body)
     if (!parsed.success) {
       return res.status(400).json({ error: 'invalid_input', details: parsed.error.flatten() })
+    }
+
+    // Plan enforcement: check timer limit per room
+    {
+      const planKey = room.teamId
+        ? ((await prisma.team.findUnique({ where: { id: room.teamId }, select: { plan: true } }))?.plan ?? 'FREE')
+        : 'FREE'
+      const limit = PLAN_LIMITS[planKey as keyof typeof PLAN_LIMITS]?.timersPerRoom ?? PLAN_LIMITS.FREE.timersPerRoom
+      const timerCount = await prisma.timer.count({ where: { roomId: room.id } })
+      if (!withinLimit(timerCount, limit)) {
+        return res.status(402).json({ error: 'plan_limit_reached', limit_type: 'timers_per_room', current: timerCount, limit })
+      }
     }
 
     const maxOrder = await prisma.timer.aggregate({

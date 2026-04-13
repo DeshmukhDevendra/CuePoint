@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { randomBytes } from 'node:crypto'
 import { prisma, Prisma } from '@cuepoint/db'
-import { ClaimRoomSchema, CreateRoomSchema, UpdateRoomSchema } from '@cuepoint/shared'
+import { ClaimRoomSchema, CreateRoomSchema, UpdateRoomSchema, PLAN_LIMITS, withinLimit } from '@cuepoint/shared'
 import { requireUser } from '../auth/middleware.js'
 import { verifyPassword } from '../auth/password.js'
 
@@ -28,6 +28,25 @@ roomsRouter.post('/', requireUser, async (req, res) => {
     return res.status(400).json({ error: 'invalid_input', details: parsed.error.flatten() })
   }
   const { title, timezone, teamId } = parsed.data
+
+  // Plan enforcement: check room limit
+  if (teamId) {
+    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { plan: true } })
+    if (team) {
+      const limit = PLAN_LIMITS[team.plan as keyof typeof PLAN_LIMITS]?.rooms ?? PLAN_LIMITS.FREE.rooms
+      const roomCount = await prisma.room.count({ where: { teamId, deletedAt: null } })
+      if (!withinLimit(roomCount, limit)) {
+        return res.status(402).json({ error: 'plan_limit_reached', limit_type: 'rooms', current: roomCount, limit })
+      }
+    }
+  } else {
+    // Personal rooms: apply FREE limits
+    const limit = PLAN_LIMITS.FREE.rooms
+    const roomCount = await prisma.room.count({ where: { ownerId: req.user!.id, teamId: null, deletedAt: null } })
+    if (!withinLimit(roomCount, limit)) {
+      return res.status(402).json({ error: 'plan_limit_reached', limit_type: 'rooms', current: roomCount, limit })
+    }
+  }
 
   const room = await prisma.room.create({
     data: { title, timezone, ownerId: req.user!.id, teamId: teamId ?? null, apiKey: makeApiKey() },

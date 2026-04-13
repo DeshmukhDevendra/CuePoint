@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/stores/auth'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button, Card, Input } from '@/components/ui'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { setControllerToken } from '@/lib/controllerToken'
 
 interface RoomSummary {
@@ -23,6 +23,7 @@ export function RoomsPage() {
   const qc = useQueryClient()
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [createError, setCreateError] = useState<string | null>(null)
 
   const { data: rooms = [], isLoading, isError, error } = useQuery({
     queryKey: ['rooms'],
@@ -35,7 +36,15 @@ export function RoomsPage() {
       qc.invalidateQueries({ queryKey: ['rooms'] })
       setCreating(false)
       setNewTitle('')
+      setCreateError(null)
       navigate(`/rooms/${room.id}`)
+    },
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 402) {
+        setCreateError('Room limit reached on the Free plan (5 rooms). Assign rooms to a Pro team or delete unused rooms.')
+      } else {
+        setCreateError('Failed to create room. Please try again.')
+      }
     },
   })
 
@@ -115,6 +124,9 @@ export function RoomsPage() {
                 Cancel
               </Button>
             </form>
+            {createError && (
+              <p className="mt-2 text-xs text-destructive">{createError}</p>
+            )}
           </Card>
         )}
 

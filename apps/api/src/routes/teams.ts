@@ -30,6 +30,8 @@ import {
   InviteMemberSchema,
   UpdateMemberRoleSchema,
   AcceptInviteSchema,
+  PLAN_LIMITS,
+  withinLimit,
 } from '@cuepoint/shared'
 
 export const teamsRouter = Router()
@@ -140,6 +142,17 @@ teamsRouter.post('/:teamId/invite', async (req, res) => {
 
   const parsed = InviteMemberSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'invalid_input', details: parsed.error.flatten() })
+
+  // Plan enforcement: check member limit before inviting
+  {
+    const team = await prisma.team.findUnique({ where: { id: req.params['teamId']! }, select: { plan: true } })
+    const planKey = (team?.plan ?? 'FREE') as keyof typeof PLAN_LIMITS
+    const limit = PLAN_LIMITS[planKey]?.teamMembers ?? PLAN_LIMITS.FREE.teamMembers
+    const memberCount = await prisma.teamMember.count({ where: { teamId: req.params['teamId']! } })
+    if (!withinLimit(memberCount, limit)) {
+      return res.status(402).json({ error: 'plan_limit_reached', limit_type: 'team_members', current: memberCount, limit })
+    }
+  }
 
   // Check already a member
   const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } })

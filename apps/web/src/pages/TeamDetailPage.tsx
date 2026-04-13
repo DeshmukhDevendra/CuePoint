@@ -4,7 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/stores/auth'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button, Card, Input } from '@/components/ui'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
+import { PLAN_LIMITS, PLAN_DISPLAY_NAMES, PLAN_DESCRIPTIONS, isUnlimited, type PlanTier } from '@cuepoint/shared'
+import { cn } from '@/lib/cn'
 
 interface TeamMember {
   id: string
@@ -56,6 +58,7 @@ export function TeamDetailPage() {
   const [newName, setNewName] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteInput, setDeleteInput] = useState('')
+  const [inviteError, setInviteError] = useState<string | null>(null)
 
   const { data: team, isLoading, isError } = useQuery({
     queryKey: ['team', teamId],
@@ -81,8 +84,16 @@ export function TeamDetailPage() {
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['team', teamId] })
       setInviteEmail('')
+      setInviteError(null)
       setLastInviteToken(res.token)
       setLastInviteEmailSent(res.emailSent)
+    },
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 402) {
+        setInviteError('Member limit reached for your plan. Upgrade to invite more members.')
+      } else {
+        setInviteError('Failed to send invite. Please try again.')
+      }
     },
   })
 
@@ -209,6 +220,68 @@ export function TeamDetailPage() {
           )}
         </div>
 
+        {/* Plan & Usage */}
+        {(() => {
+          const plan = (team.plan ?? 'FREE') as PlanTier
+          const limits = PLAN_LIMITS[plan]
+          const memberCount = team.members.length
+          const roomCount = team.rooms.length
+          const planColor = plan === 'PREMIUM'
+            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+            : plan === 'PRO'
+              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+
+          function UsageBar({ current, limit, label }: { current: number; limit: number; label: string }) {
+            const pct = isUnlimited(limit) ? 0 : Math.min(100, (current / limit) * 100)
+            const nearLimit = !isUnlimited(limit) && pct >= 80
+            return (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{label}</span>
+                  <span>{current} / {isUnlimited(limit) ? '∞' : limit}</span>
+                </div>
+                {!isUnlimited(limit) && (
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={cn('h-full rounded-full transition-all', nearLimit ? 'bg-red-500' : 'bg-primary')}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+          return (
+            <Card className="p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', planColor)}>
+                      {PLAN_DISPLAY_NAMES[plan]}
+                    </span>
+                    <span className="text-sm text-muted-foreground">plan</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{PLAN_DESCRIPTIONS[plan]}</p>
+                </div>
+                {plan === 'FREE' && isOwner && (
+                  <a
+                    href="mailto:hello@cuepoint.app?subject=Upgrade%20CuePoint%20Plan"
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Upgrade →
+                  </a>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <UsageBar current={memberCount} limit={limits.teamMembers} label="Team members" />
+                <UsageBar current={roomCount} limit={limits.rooms} label="Team rooms" />
+              </div>
+            </Card>
+          )
+        })()}
+
         {/* Members */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
@@ -276,7 +349,10 @@ export function TeamDetailPage() {
                   )}
                 </div>
               )}
-              {invite.isError && (
+              {inviteError && (
+                <p className="mt-2 text-xs text-destructive">{inviteError}</p>
+              )}
+              {invite.isError && !inviteError && (
                 <p className="mt-2 text-xs text-destructive">
                   {(invite.error as Error)?.message ?? 'Failed to send invite'}
                 </p>
