@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   DndContext,
@@ -42,6 +42,67 @@ function timerAction(roomId: string, timerId: string, action: string, adjustMs?:
   )
 }
 
+// ——— Mobile More Menu ———
+
+function MoreMenu({ roomId, me }: { roomId: string; me: { id: string } | null }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  const links = [
+    { label: 'Viewer', href: `/rooms/${roomId}/viewer`, external: true },
+    { label: 'Agenda', href: `/rooms/${roomId}/agenda`, external: true },
+    { label: 'Moderator', href: `/rooms/${roomId}/moderator`, external: true },
+    { label: 'Operator', href: `/rooms/${roomId}/operator`, external: true },
+    { label: 'Submit Q', href: `/rooms/${roomId}/submit`, external: true },
+    { label: 'Logs', href: `/rooms/${roomId}/logs`, external: false },
+  ]
+
+  return (
+    <div ref={ref} className="relative sm:hidden">
+      <Button
+        className="bg-muted text-foreground text-xs hover:opacity-80 h-9 px-3"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="More options"
+      >
+        ⋯
+      </Button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-40 min-w-[140px] rounded-lg border bg-card shadow-lg py-1">
+          {links.map((l) => (
+            <Link
+              key={l.label}
+              to={l.href}
+              target={l.external ? '_blank' : undefined}
+              rel={l.external ? 'noreferrer' : undefined}
+              className="block px-4 py-2 text-sm hover:bg-muted transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              {l.label}
+            </Link>
+          ))}
+          {me && (
+            <Link
+              to={`/rooms/${roomId}/settings`}
+              className="block px-4 py-2 text-sm hover:bg-muted transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              ⚙ Settings
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ——— TimerRow ———
 
 function TimerRow({
@@ -73,102 +134,180 @@ function TimerRow({
     over: 'border-red-500 bg-red-500/10',
   }[phase]
 
+  const isRunning = timer.isRunning
+  const hasElapsed = timer.elapsedMs > 0
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex items-center gap-3 rounded-lg border bg-card px-4 py-3 transition-colors',
+        'rounded-lg border bg-card px-3 py-3 transition-colors',
         phaseColor,
         isDragging && 'opacity-50'
       )}
     >
-      {canMutate ? (
-        <button
-          {...attributes}
-          {...listeners}
-          className="cursor-grab touch-none text-muted-foreground"
-          aria-label="Drag"
-          type="button"
-        >
-          ⠿
-        </button>
-      ) : (
-        <span className="w-6" aria-hidden />
-      )}
-
-      <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{timer.title ?? 'Untitled'}</p>
-        {timer.speaker && <p className="text-xs text-muted-foreground truncate">{timer.speaker}</p>}
-      </div>
-
-      <span
-        className={cn(
-          'font-mono text-2xl font-bold tabular-nums w-24 text-right',
-          phase === 'yellow' && 'text-yellow-500',
-          phase === 'red' && 'text-red-500',
-          phase === 'over' && 'text-red-500'
+      {/* Top row: drag handle + title + time display */}
+      <div className="flex items-center gap-2 mb-2">
+        {canMutate ? (
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab touch-none text-muted-foreground shrink-0 min-w-[24px] min-h-[44px] flex items-center justify-center"
+            aria-label="Drag to reorder"
+            type="button"
+          >
+            ⠿
+          </button>
+        ) : (
+          <span className="w-6 shrink-0" aria-hidden />
         )}
-      >
-        {display}
-      </span>
 
-      <div className="flex gap-1">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium truncate text-sm sm:text-base">{timer.title ?? 'Untitled'}</p>
+          {timer.speaker && (
+            <p className="text-xs text-muted-foreground truncate">{timer.speaker}</p>
+          )}
+        </div>
+
+        <span
+          className={cn(
+            'font-mono text-2xl font-bold tabular-nums shrink-0',
+            phase === 'yellow' && 'text-yellow-500',
+            (phase === 'red' || phase === 'over') && 'text-red-500'
+          )}
+        >
+          {display}
+        </span>
+
         {canMutate && (
           <Button
-            className="h-8 px-2 text-xs bg-muted text-foreground hover:opacity-80"
+            className="h-9 w-9 px-0 bg-muted text-foreground hover:opacity-80 shrink-0"
             onClick={() => onEdit(timer)}
             aria-label="Edit timer"
           >
             ✏
           </Button>
         )}
-        {!timer.isRunning ? (
+      </div>
+
+      {/* Action buttons row */}
+      <div className="flex flex-wrap gap-1.5 pl-8">
+        {/* Start / Pause — primary action, always prominent */}
+        {!isRunning ? (
           <Button
-            className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
+            className="h-10 sm:h-8 px-3 text-sm sm:text-xs bg-green-600 hover:bg-green-700 min-w-[80px]"
             disabled={!canMutate}
-            onClick={() => timerAction(roomId, timer.id, timer.elapsedMs > 0 ? 'resume' : 'start')}
+            onClick={() => timerAction(roomId, timer.id, hasElapsed ? 'resume' : 'start')}
+            title={hasElapsed ? 'Resume' : 'Start'}
           >
-            {timer.elapsedMs > 0 ? '▶ Resume' : '▶ Start'}
+            <span className="sm:hidden">▶ {hasElapsed ? 'Resume' : 'Start'}</span>
+            <span className="hidden sm:inline">▶ {hasElapsed ? 'Resume' : 'Start'}</span>
           </Button>
         ) : (
           <Button
-            className="h-8 px-3 text-xs bg-yellow-500 hover:bg-yellow-600 text-black"
+            className="h-10 sm:h-8 px-3 text-sm sm:text-xs bg-yellow-500 hover:bg-yellow-600 text-black min-w-[80px]"
             disabled={!canMutate}
             onClick={() => timerAction(roomId, timer.id, 'pause')}
+            title="Pause"
           >
-            ⏸ Pause
+            <span className="sm:hidden">⏸ Pause</span>
+            <span className="hidden sm:inline">⏸ Pause</span>
           </Button>
         )}
+
         <Button
-          className="h-8 px-3 text-xs bg-muted text-foreground hover:opacity-80"
+          className="h-10 sm:h-8 px-3 text-sm sm:text-xs bg-muted text-foreground hover:opacity-80"
           disabled={!canMutate}
           onClick={() => timerAction(roomId, timer.id, 'stop')}
+          title="Stop"
         >
-          ■ Stop
+          <span className="sm:hidden">■</span>
+          <span className="hidden sm:inline">■ Stop</span>
         </Button>
+
         <Button
-          className="h-8 px-3 text-xs bg-muted text-foreground hover:opacity-80"
+          className="h-10 sm:h-8 px-3 text-sm sm:text-xs bg-muted text-foreground hover:opacity-80"
           disabled={!canMutate}
           onClick={() => timerAction(roomId, timer.id, 'reset')}
+          title="Reset"
         >
           ↺
         </Button>
+
         <Button
-          className="h-8 px-2 text-xs bg-muted text-foreground hover:opacity-80"
+          className="h-10 sm:h-8 px-2 text-sm sm:text-xs bg-muted text-foreground hover:opacity-80"
           disabled={!canMutate}
           onClick={() => timerAction(roomId, timer.id, 'adjust', 60_000)}
-        >
-          -1m
-        </Button>
-        <Button
-          className="h-8 px-2 text-xs bg-muted text-foreground hover:opacity-80"
-          disabled={!canMutate}
-          onClick={() => timerAction(roomId, timer.id, 'adjust', -60_000)}
+          title="Add 1 minute"
         >
           +1m
         </Button>
+
+        <Button
+          className="h-10 sm:h-8 px-2 text-sm sm:text-xs bg-muted text-foreground hover:opacity-80"
+          disabled={!canMutate}
+          onClick={() => timerAction(roomId, timer.id, 'adjust', -60_000)}
+          title="Remove 1 minute"
+        >
+          -1m
+        </Button>
       </div>
+    </div>
+  )
+}
+
+// ——— Mobile Bottom Bar ———
+
+function MobileBottomBar({
+  roomId,
+  timers,
+  canMutate,
+}: {
+  roomId: string
+  timers: Timer[]
+  canMutate: boolean
+}) {
+  const runningTimer = timers.find((t) => t.isRunning)
+  const nextStopped = timers.find((t) => !t.isRunning)
+
+  return (
+    <div className="fixed bottom-0 inset-x-0 sm:hidden z-30 border-t bg-card/95 backdrop-blur px-4 py-2 flex gap-2">
+      <Button
+        className="flex-1 h-12 text-sm bg-green-600 hover:bg-green-700 disabled:opacity-40"
+        disabled={!canMutate || !nextStopped}
+        onClick={() => {
+          if (!nextStopped) return
+          void timerAction(roomId, nextStopped.id, nextStopped.elapsedMs > 0 ? 'resume' : 'start')
+        }}
+        title="Start next stopped timer"
+      >
+        ▶ Next
+      </Button>
+
+      <Button
+        className="flex-1 h-12 text-sm bg-yellow-500 hover:bg-yellow-600 text-black disabled:opacity-40"
+        disabled={!canMutate || !runningTimer}
+        onClick={() => {
+          if (!runningTimer) return
+          void timerAction(roomId, runningTimer.id, 'pause')
+        }}
+        title="Pause running timer"
+      >
+        ⏸ Pause
+      </Button>
+
+      <Button
+        className="flex-1 h-12 text-sm bg-muted text-foreground hover:opacity-80 disabled:opacity-40"
+        disabled={!canMutate || !runningTimer}
+        onClick={() => {
+          if (!runningTimer) return
+          void timerAction(roomId, runningTimer.id, 'stop')
+        }}
+        title="Stop running timer"
+      >
+        ■ Stop
+      </Button>
     </div>
   )
 }
@@ -255,58 +394,71 @@ export function ControllerPage() {
     Boolean(me) && !room.ownerId && Boolean(getControllerToken(room.id)) && writeAccess
 
   return (
-    <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b px-6 py-3">
-        <div className="flex items-center gap-3">
-          <Link to={me ? '/' : '/login'} className="text-muted-foreground hover:text-foreground text-sm">
-            ← {me ? 'Rooms' : 'Sign in'}
+    <div className="min-h-screen pb-20 sm:pb-0">
+      {/* ── Header ── */}
+      <header className="flex items-center justify-between border-b px-4 sm:px-6 py-3 gap-2">
+        {/* Left: back + room title */}
+        <div className="flex items-center gap-2 min-w-0">
+          <Link to={me ? '/' : '/login'} className="text-muted-foreground hover:text-foreground text-sm shrink-0">
+            ←
           </Link>
-          <span className="text-muted-foreground">/</span>
-          <h1 className="font-semibold truncate max-w-xs">{room.title}</h1>
+          <span className="text-muted-foreground shrink-0">/</span>
+          <h1 className="font-semibold truncate text-sm sm:text-base">{room.title}</h1>
           {room.onAir && (
-            <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">ON AIR</span>
+            <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white shrink-0">
+              ON AIR
+            </span>
           )}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Link to={`/rooms/${room.id}/viewer`} target="_blank" rel="noreferrer">
-            <Button className="bg-muted text-foreground text-xs sm:text-sm hover:opacity-80">Viewer</Button>
-          </Link>
-          <Link to={`/rooms/${room.id}/agenda`} target="_blank" rel="noreferrer">
-            <Button className="bg-muted text-foreground text-xs sm:text-sm hover:opacity-80">Agenda</Button>
-          </Link>
-          <Link to={`/rooms/${room.id}/moderator`} target="_blank" rel="noreferrer">
-            <Button className="bg-muted text-foreground text-xs sm:text-sm hover:opacity-80">Moderator</Button>
-          </Link>
-          <Link to={`/rooms/${room.id}/operator`} target="_blank" rel="noreferrer">
-            <Button className="bg-muted text-foreground text-xs sm:text-sm hover:opacity-80">Operator</Button>
-          </Link>
-          <Link to={`/rooms/${room.id}/submit`} target="_blank" rel="noreferrer">
-            <Button className="bg-muted text-foreground text-xs sm:text-sm hover:opacity-80">Submit Q</Button>
-          </Link>
-          <Link to={`/rooms/${room.id}/logs`}>
-            <Button className="bg-muted text-foreground text-xs sm:text-sm hover:opacity-80">Logs</Button>
-          </Link>
-          {me && (
-            <Link to={`/rooms/${room.id}/settings`}>
-              <Button className="bg-muted text-foreground text-xs sm:text-sm hover:opacity-80">⚙ Settings</Button>
+
+        {/* Right: desktop nav buttons + mobile ⋯ menu */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Desktop-only nav links */}
+          <div className="hidden sm:flex items-center gap-1.5">
+            <Link to={`/rooms/${room.id}/viewer`} target="_blank" rel="noreferrer">
+              <Button className="bg-muted text-foreground text-xs hover:opacity-80 h-8 px-3">Viewer</Button>
             </Link>
-          )}
+            <Link to={`/rooms/${room.id}/agenda`} target="_blank" rel="noreferrer">
+              <Button className="bg-muted text-foreground text-xs hover:opacity-80 h-8 px-3">Agenda</Button>
+            </Link>
+            <Link to={`/rooms/${room.id}/moderator`} target="_blank" rel="noreferrer">
+              <Button className="bg-muted text-foreground text-xs hover:opacity-80 h-8 px-3">Moderator</Button>
+            </Link>
+            <Link to={`/rooms/${room.id}/operator`} target="_blank" rel="noreferrer">
+              <Button className="bg-muted text-foreground text-xs hover:opacity-80 h-8 px-3">Operator</Button>
+            </Link>
+            <Link to={`/rooms/${room.id}/submit`} target="_blank" rel="noreferrer">
+              <Button className="bg-muted text-foreground text-xs hover:opacity-80 h-8 px-3">Submit Q</Button>
+            </Link>
+            <Link to={`/rooms/${room.id}/logs`}>
+              <Button className="bg-muted text-foreground text-xs hover:opacity-80 h-8 px-3">Logs</Button>
+            </Link>
+            {me && (
+              <Link to={`/rooms/${room.id}/settings`}>
+                <Button className="bg-muted text-foreground text-xs hover:opacity-80 h-8 px-3">⚙ Settings</Button>
+              </Link>
+            )}
+          </div>
+
+          {/* Mobile ⋯ dropdown */}
+          <MoreMenu roomId={room.id} me={me} />
+
           <ThemeToggle />
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-6 py-6 space-y-3">
+      {/* ── Main ── */}
+      <main className="mx-auto max-w-4xl px-4 sm:px-6 py-4 sm:py-6 space-y-3">
         {!room.ownerId && (
           <Card className="border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-            Guest room — keep this browser profile, or save the link. Clear site data and you will lose control
-            unless you sign in and save the room to your account.
+            Guest room — keep this browser profile, or save the link.
           </Card>
         )}
 
         {showClaim && (
           <Card className="flex flex-wrap items-center justify-between gap-3 border-primary/40 bg-primary/5 px-4 py-3">
-            <p className="text-sm">Save this guest room to your account so it appears in your room list.</p>
-            <Button disabled={claiming} onClick={() => void claimRoom()}>
+            <p className="text-sm">Save this guest room to your account.</p>
+            <Button disabled={claiming} onClick={() => void claimRoom()} className="h-10 min-w-[140px]">
               {claiming ? 'Saving…' : 'Save to my account'}
             </Button>
           </Card>
@@ -352,7 +504,7 @@ export function ControllerPage() {
         </DndContext>
 
         <Button
-          className="w-full bg-muted text-foreground hover:opacity-80"
+          className="w-full h-11 sm:h-10 bg-muted text-foreground hover:opacity-80"
           disabled={!canMutate}
           onClick={() =>
             void api.post(
@@ -376,6 +528,7 @@ export function ControllerPage() {
         <OutputLinksSection roomId={room.id} canMutate={canMutate} />
       </main>
 
+      {/* ── Timer edit drawer ── */}
       {editingTimer && (
         <TimerEditDrawer
           timer={editingTimer}
@@ -384,6 +537,11 @@ export function ControllerPage() {
           onClose={() => setEditingTimer(null)}
           onSaved={() => setEditingTimer(null)}
         />
+      )}
+
+      {/* ── Mobile bottom bar ── */}
+      {canMutate && orderedTimers.length > 0 && (
+        <MobileBottomBar roomId={room.id} timers={orderedTimers} canMutate={canMutate} />
       )}
 
       <CursorOverlay cursors={remoteCursors} />
