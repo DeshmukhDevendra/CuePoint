@@ -17,6 +17,7 @@ import { RoomSettingsPage } from '@/pages/RoomSettingsPage'
 import { TeamsPage } from '@/pages/TeamsPage'
 import { TeamDetailPage } from '@/pages/TeamDetailPage'
 import { AcceptInvitePage } from '@/pages/AcceptInvitePage'
+import { AnalyticsPage } from '@/pages/AnalyticsPage'
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { me, loaded } = useAuth()
@@ -56,6 +57,7 @@ export function App() {
       />
       <Route path="/rooms/:roomId/outputs/:outputId/edit" element={<OutputEditorPage />} />
       <Route path="/rooms/:roomId/logs" element={<LogsPage />} />
+      <Route path="/rooms/:roomId/analytics" element={<AnalyticsPage />} />
       <Route path="/rooms/:roomId/settings" element={<RoomSettingsPage />} />
       <Route
         path="/teams"

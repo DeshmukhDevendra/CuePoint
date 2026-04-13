@@ -16,6 +16,7 @@ import { makeRoomLiveRouter } from './routes/roomLive.js'
 import { makeTimersRouter } from './routes/timers.js'
 import { makeLabelsRouter } from './routes/labels.js'
 import { logsRouter } from './routes/logs.js'
+import { analyticsRouter } from './routes/analytics.js'
 import { webhooksRouter } from './routes/webhooks.js'
 import { makeApiV1Router } from './routes/apiV1.js'
 import { makeGeneralLimiter } from './lib/rateLimiter.js'
@@ -64,6 +65,7 @@ export function createCuepointAppBundle(): CuepointAppBundle {
     app.use('/api/rooms/:roomId/live', makeRoomLiveRouter(io))
     app.use('/api/rooms/:roomId/labels', makeLabelsRouter(io))
     app.use('/api/rooms/:roomId/logs', logsRouter)
+    app.use('/api/rooms/:roomId/analytics', analyticsRouter)
     app.use('/api/rooms/:roomId/webhooks', webhooksRouter)
 
     app.use((_req, res) => res.status(404).json({ error: 'not_found' }))

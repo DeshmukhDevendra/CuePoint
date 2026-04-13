@@ -209,6 +209,30 @@ export function makeTimersRouter(io: SocketIOServer) {
     const updated = await prisma.timer.update({ where: { id: timer.id }, data: update })
     broadcast(room.id, S2C.TIMER_UPDATED, updated)
 
+    // Record analytics event
+    if (parsed.data.action === 'start') {
+      void prisma.analyticsEvent.create({
+        data: {
+          roomId: room.id,
+          eventType: 'timer_started',
+          timerId: timer.id,
+          metadata: { title: timer.title },
+        },
+      })
+    } else if (parsed.data.action === 'stop' || parsed.data.action === 'expire') {
+      const elapsed = timer.elapsedMs + (timer.startedAt ? now.getTime() - timer.startedAt.getTime() : 0)
+      void prisma.analyticsEvent.create({
+        data: {
+          roomId: room.id,
+          eventType: parsed.data.action === 'expire' ? 'timer_expired' : 'timer_stopped',
+          timerId: timer.id,
+          durationMs: elapsed,
+          overUnderMs: timer.durationMs > 0 ? elapsed - timer.durationMs : null,
+          metadata: { title: timer.title },
+        },
+      })
+    }
+
     // Auto-advance: if this was an expire action, start the next LINKED timer
     if (parsed.data.action === 'expire' || parsed.data.action === 'stop') {
       const nextTimer = await prisma.timer.findFirst({

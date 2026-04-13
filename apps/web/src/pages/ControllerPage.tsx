@@ -62,6 +62,7 @@ function MoreMenu({ roomId, me }: { roomId: string; me: { id: string } | null })
     { label: 'Moderator', href: `/rooms/${roomId}/moderator`, external: true },
     { label: 'Operator', href: `/rooms/${roomId}/operator`, external: true },
     { label: 'Submit Q', href: `/rooms/${roomId}/submit`, external: true },
+    { label: 'Analytics', href: `/rooms/${roomId}/analytics`, external: false },
     { label: 'Logs', href: `/rooms/${roomId}/logs`, external: false },
   ]
 
@@ -429,6 +430,9 @@ export function ControllerPage() {
             </Link>
             <Link to={`/rooms/${room.id}/submit`} target="_blank" rel="noreferrer">
               <Button className="bg-muted text-foreground text-xs hover:opacity-80 h-8 px-3">Submit Q</Button>
+            </Link>
+            <Link to={`/rooms/${room.id}/analytics`}>
+              <Button className="bg-muted text-foreground text-xs hover:opacity-80 h-8 px-3">Analytics</Button>
             </Link>
             <Link to={`/rooms/${room.id}/logs`}>
               <Button className="bg-muted text-foreground text-xs hover:opacity-80 h-8 px-3">Logs</Button>
