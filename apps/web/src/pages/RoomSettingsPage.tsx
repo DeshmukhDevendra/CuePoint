@@ -93,6 +93,7 @@ export function RoomSettingsPage() {
       setTitle(room.title)
       setTimezone(room.timezone)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id])
 
   async function saveSettings() {
@@ -154,7 +155,7 @@ export function RoomSettingsPage() {
   if (isError || !room) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 text-muted-foreground">
-        <p>Room not found or you don't have access.</p>
+        <p>Room not found or you don&apos;t have access.</p>
         <Link to="/" className="text-primary hover:underline text-sm">← Back to rooms</Link>
       </div>
     )
@@ -352,7 +353,7 @@ export function RoomSettingsPage() {
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-destructive font-medium">
-                This will permanently delete "{room.title}" and all its timers, messages, and outputs. This cannot be undone.
+                This will permanently delete &ldquo;{room.title}&rdquo; and all its timers, messages, and outputs. This cannot be undone.
               </p>
               <div className="flex gap-3">
                 <Button

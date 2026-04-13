@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Timer, Label } from '@cuepoint/db'
-import { parseDuration, formatDuration } from '@cuepoint/shared'
+import { parseDuration } from '@cuepoint/shared'
 import { Button, Drawer, FieldRow, Input, Select, Textarea } from './ui'
 import { api } from '@/lib/api'
 import { roomControlInit } from '@/lib/controllerToken'
@@ -71,6 +71,7 @@ export function TimerEditDrawer({ timer, roomId, labels, onClose, onSaved }: Tim
     setWrapupFlash(timer.wrapupFlash)
     setWrapupChime(timer.wrapupChime ?? '')
     setSelectedLabels(timer.labelIds ?? [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timer?.id])
 
   function toggleLabel(id: string) {

@@ -60,7 +60,7 @@ export function AcceptInvitePage() {
         {status === 'accepting' && <p className="text-muted-foreground">Accepting invite…</p>}
         {status === 'success' && (
           <>
-            <p className="font-medium text-green-600">You've joined the team!</p>
+            <p className="font-medium text-green-600">You&apos;ve joined the team!</p>
             <Button onClick={() => navigate(`/teams/${teamId}`)}>View team</Button>
           </>
         )}

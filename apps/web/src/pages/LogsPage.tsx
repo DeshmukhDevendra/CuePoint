@@ -1,6 +1,5 @@
-import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { Button, Card } from '@/components/ui'
 import { ThemeToggle } from '@/components/ThemeToggle'
