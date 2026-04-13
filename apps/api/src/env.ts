@@ -22,6 +22,8 @@ const EnvSchema = z.object({
   SESSION_COOKIE_NAME: z.string().default('cuepoint_session'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   WEB_BASE_URL: z.string().url().default('http://localhost:5173'),
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM: z.string().email().optional().default('invites@cuepoint.app'),
 })
 
 const parsed = EnvSchema.safeParse(process.env)

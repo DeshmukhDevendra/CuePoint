@@ -50,6 +50,7 @@ export function TeamDetailPage() {
   const [inviteRole, setInviteRole] = useState<'MEMBER' | 'ADMIN'>('MEMBER')
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [lastInviteToken, setLastInviteToken] = useState<string | null>(null)
+  const [lastInviteEmailSent, setLastInviteEmailSent] = useState(false)
   const [showKey, setShowKey] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [newName, setNewName] = useState('')
@@ -76,11 +77,12 @@ export function TeamDetailPage() {
 
   const invite = useMutation({
     mutationFn: ({ email, role }: { email: string; role: string }) =>
-      api.post<{ token: string }>(`/teams/${teamId}/invite`, { email, role }),
+      api.post<{ token: string; emailSent: boolean }>(`/teams/${teamId}/invite`, { email, role }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['team', teamId] })
       setInviteEmail('')
       setLastInviteToken(res.token)
+      setLastInviteEmailSent(res.emailSent)
     },
   })
 
@@ -245,20 +247,33 @@ export function TeamDetailPage() {
                 </Button>
               </form>
               {lastInviteToken && (
-                <div className="mt-3 space-y-1">
-                  <p className="text-xs text-green-600 font-medium">Invite created! Share this link:</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 rounded bg-muted px-2 py-1 text-xs break-all font-mono">
-                      {`${window.location.origin}/accept-invite?token=${lastInviteToken}`}
-                    </code>
-                    <Button
-                      type="button"
-                      className="bg-muted text-foreground text-xs shrink-0"
-                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/accept-invite?token=${lastInviteToken}`)}
-                    >
-                      Copy
-                    </Button>
-                  </div>
+                <div className="mt-3 space-y-2">
+                  {lastInviteEmailSent ? (
+                    <div className="flex items-center gap-2 rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2">
+                      <span className="text-green-600 text-sm">✓</span>
+                      <p className="text-xs text-green-700 dark:text-green-400 font-medium">
+                        Invite email sent successfully.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+                      <p className="text-xs text-amber-700 dark:text-amber-400 font-medium mb-1">
+                        Email not configured — share this link manually:
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 rounded bg-muted px-2 py-1 text-xs break-all font-mono">
+                          {`${window.location.origin}/accept-invite?token=${lastInviteToken}`}
+                        </code>
+                        <Button
+                          type="button"
+                          className="bg-muted text-foreground text-xs shrink-0"
+                          onClick={() => navigator.clipboard.writeText(`${window.location.origin}/accept-invite?token=${lastInviteToken}`)}
+                        >
+                          Copy
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {invite.isError && (

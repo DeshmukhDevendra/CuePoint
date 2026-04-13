@@ -22,6 +22,8 @@ import { Router } from 'express'
 import { randomBytes } from 'node:crypto'
 import { prisma } from '@cuepoint/db'
 import { requireUser } from '../auth/middleware.js'
+import { sendInviteEmail } from '../lib/email.js'
+import { env } from '../env.js'
 import {
   CreateTeamSchema,
   UpdateTeamSchema,
@@ -151,13 +153,31 @@ teamsRouter.post('/:teamId/invite', async (req, res) => {
   const token = randomBytes(24).toString('hex')
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
+  const team = await prisma.team.findUnique({
+    where: { id: req.params['teamId']! },
+    select: { name: true },
+  })
+
   const invite = await prisma.teamInvite.upsert({
     where: { teamId_email: { teamId: req.params['teamId']!, email: parsed.data.email } },
     create: { teamId: req.params['teamId']!, email: parsed.data.email, role: parsed.data.role, token, expiresAt },
     update: { role: parsed.data.role, token, expiresAt },
     select: { id: true, email: true, role: true, token: true, expiresAt: true },
   })
-  return res.status(201).json(invite)
+
+  const inviteUrl = `${env.WEB_BASE_URL}/accept-invite?token=${invite.token}`
+  const inviterName = req.user!.name ?? req.user!.email ?? 'A teammate'
+
+  const emailSent = await sendInviteEmail({
+    to: invite.email,
+    teamName: team?.name ?? 'the team',
+    inviterName,
+    inviteUrl,
+    role: invite.role,
+    expiresAt: invite.expiresAt,
+  })
+
+  return res.status(201).json({ ...invite, emailSent })
 })
 
 teamsRouter.get('/:teamId/invites', async (req, res) => {
