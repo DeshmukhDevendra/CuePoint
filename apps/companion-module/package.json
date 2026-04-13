@@ -1,0 +1,19 @@
+{
+  "name": "@cuepoint/companion-module",
+  "version": "1.0.0",
+  "description": "Bitfocus Companion module for CuePoint",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@companion-module/base": "^1.8.0"
+  },
+  "devDependencies": {
+    "@cuepoint/tsconfig": "workspace:*",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

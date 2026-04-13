@@ -1,0 +1,9 @@
+{
+  "id": "cuepoint-timer",
+  "name": "CuePoint",
+  "shortname": "CuePoint",
+  "manufacturer": "CuePoint",
+  "products": ["CuePoint Timer"],
+  "description": "Control CuePoint rooms and timers via HTTP API",
+  "entrypoint": "dist/index.js"
+}

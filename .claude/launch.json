@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "CuePoint — All (Turbo)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "port": 5173
+    },
+    {
+      "name": "API (Express + Socket.IO)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@cuepoint/api", "dev"],
+      "port": 4000
+    },
+    {
+      "name": "Web (Vite)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@cuepoint/web", "dev"],
+      "port": 5173
+    }
+  ]
+}

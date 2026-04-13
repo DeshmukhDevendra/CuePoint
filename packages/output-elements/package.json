@@ -1,0 +1,32 @@
+{
+  "name": "@cuepoint/output-elements",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "echo 'output-elements: no tests'",
+    "clean": "rm -rf node_modules dist .turbo"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "dependencies": {
+    "@cuepoint/db": "workspace:*",
+    "@cuepoint/shared": "workspace:*",
+    "@types/qrcode": "^1.5.5",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@cuepoint/tsconfig": "workspace:*",
+    "@types/react": "^18.3.11",
+    "react": "^18.3.1",
+    "typescript": "^5.6.3"
+  }
+}

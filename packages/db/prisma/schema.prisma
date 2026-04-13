@@ -1,0 +1,365 @@
+// CuePoint — database schema
+// Run: pnpm db:generate && pnpm db:migrate
+
+generator client {
+  provider = "prisma-client-js"
+  // Keep client outside `src/` so editors/TS watchers are less likely to lock query_engine on Windows.
+  output = "../generated/prisma"
+  // Separate query-engine .exe (Windows) avoids EPERM renames on the .dll.node file loaded into Node.
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum Plan {
+  FREE
+  PRO
+  PREMIUM
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum TimerTrigger {
+  MANUAL
+  LINKED
+  SCHEDULED
+}
+
+enum TimerAppearance {
+  COUNTDOWN
+  COUNT_UP
+  TIME_OF_DAY
+  COUNTDOWN_TOD
+  COUNT_UP_TOD
+  HIDDEN
+}
+
+enum OutputType {
+  VIEWER
+  AGENDA
+  MODERATOR
+  CONTROLLER
+  OPERATOR
+  CUSTOM
+}
+
+enum MessageSource {
+  MANUAL
+  AUDIENCE
+}
+
+enum LogoMode {
+  DEFAULT
+  HIDDEN
+  CUSTOM
+}
+
+// ============================================================
+// Auth — User + Session (Lucia)
+// ============================================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String?
+  locale        String   @default("en")
+  theme         String   @default("system") // system | light | dark
+  emailVerified DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions   Session[]
+  teams      TeamMember[]
+  ownedRooms Room[]       @relation("RoomOwner")
+  logs       Log[]
+
+  @@index([email])
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============================================================
+// Teams
+// ============================================================
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  plan      Plan     @default(FREE)
+  apiKey    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members TeamMember[]
+  rooms   Room[]
+  invites TeamInvite[]
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  userId    String
+  teamId    String
+  role      TeamRole @default(MEMBER)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@index([teamId])
+}
+
+model TeamInvite {
+  id        String   @id @default(cuid())
+  teamId    String
+  email     String
+  role      TeamRole @default(MEMBER)
+  token     String   @unique // secure random token sent via email / copy-link
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, email])
+  @@index([token])
+}
+
+// ============================================================
+// Rooms
+// ============================================================
+
+model Room {
+  id        String    @id @default(cuid())
+  title     String    @default("Untitled Room")
+  timezone  String    @default("UTC")
+  ownerId   String?
+  teamId    String?
+  /// Argon2 hash of a one-time controller secret; only for guest (ownerId null) rooms until claimed
+  anonymousControllerSecretHash String?
+  apiKey    String    @unique
+  onAir     Boolean   @default(false)
+  blackout  Boolean   @default(false)
+  settings  Json      @default("{}")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  owner        User?                 @relation("RoomOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  team         Team?                 @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  timers       Timer[]
+  messages     Message[]
+  labels       Label[]
+  webhooks     Webhook[]
+  outputs      Output[]
+  logs         Log[]
+  analytics    AnalyticsEvent[]
+  submitConfig SubmitQuestionConfig?
+
+  @@index([ownerId])
+  @@index([teamId])
+}
+
+// ============================================================
+// Timers
+// ============================================================
+
+model Timer {
+  id             String          @id @default(cuid())
+  roomId         String
+  order          Int
+  title          String?
+  speaker        String?
+  notes          String?
+  durationMs     Int             @default(0)
+  displayMs      Int? // for time-warp: what the presenter sees
+  startTime      DateTime? // hard start time (optional)
+  triggerType    TimerTrigger    @default(MANUAL)
+  appearance     TimerAppearance @default(COUNTDOWN)
+  wrapupYellowMs Int?
+  wrapupRedMs    Int?
+  wrapupFlash    Boolean         @default(false)
+  wrapupChime    String?
+  labelIds       String[]        @default([])
+
+  // Runtime state — could move to Redis later for throughput
+  isRunning Boolean   @default(false)
+  startedAt DateTime?
+  pausedAt  DateTime?
+  elapsedMs Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, order])
+}
+
+// ============================================================
+// Messages
+// ============================================================
+
+model Message {
+  id         String        @id @default(cuid())
+  roomId     String
+  text       String
+  color      String        @default("white") // white | green | red | custom hex
+  bold       Boolean       @default(false)
+  uppercase  Boolean       @default(false)
+  flash      Boolean       @default(false)
+  focus      Boolean       @default(false)
+  visible    Boolean       @default(false)
+  order      Int           @default(0)
+  source     MessageSource @default(MANUAL)
+  authorName String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, order])
+}
+
+// ============================================================
+// Labels (room-scoped colored tags)
+// ============================================================
+
+model Label {
+  id     String @id @default(cuid())
+  roomId String
+  name   String
+  color  String
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, name])
+}
+
+// ============================================================
+// Outputs — per-room configurable views
+// ============================================================
+
+model Output {
+  id           String     @id @default(cuid())
+  roomId       String
+  name         String
+  type         OutputType
+  layout       Json       @default("{}") // grid elements, bg, aspect, fonts
+  passwordHash String?
+  logoMode     LogoMode   @default(DEFAULT)
+  logoUrl      String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  room  Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  links OutputLink[]
+
+  @@index([roomId])
+}
+
+model OutputLink {
+  id        String    @id @default(cuid())
+  outputId  String
+  signature String    @unique // HMAC of options
+  options   Json      @default("{}") // identifier, mirror, delay, timezone, hideControls
+  shortCode String?   @unique
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  output Output @relation(fields: [outputId], references: [id], onDelete: Cascade)
+
+  @@index([outputId])
+}
+
+// ============================================================
+// Logs
+// ============================================================
+
+model Log {
+  id        String   @id @default(cuid())
+  roomId    String
+  actorId   String?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  room  Room  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([roomId, createdAt])
+}
+
+// ============================================================
+// Analytics (per-room event log for dashboard)
+// ============================================================
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  roomId      String
+  eventType   String // timer_started | timer_stopped | message_shown | on_air | ...
+  timerId     String?
+  durationMs  Int?
+  overUnderMs Int? // schedule adherence
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+  @@index([roomId, eventType, createdAt])
+}
+
+// ============================================================
+// Webhooks — per-room outbound HTTP callbacks
+// ============================================================
+
+model Webhook {
+  id        String   @id @default(cuid())
+  roomId    String
+  url       String
+  events    String[] @default([]) // e.g. ["timer.started", "timer.stopped"]
+  secret    String?  // HMAC-SHA256 signing secret for X-Cuepoint-Signature
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+}
+
+// ============================================================
+// Submit Questions configuration (1:1 with Room)
+// ============================================================
+
+model SubmitQuestionConfig {
+  roomId        String  @id
+  enabled       Boolean @default(true)
+  closedMessage String?
+  logoUrl       String?
+  title         String?
+  subtitle      String?
+  questionLabel String?
+  nameLabel     String?
+  hideName      Boolean @default(false)
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}

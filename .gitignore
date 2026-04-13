@@ -1,0 +1,47 @@
+node_modules
+dist
+build
+.next
+.turbo
+coverage
+playwright-report/
+test-results/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# OS
+.DS_Store
+
+# prisma
+packages/db/prisma/migrations/dev.db*
+packages/db/generated/prisma/
+
+# uploads (local dev)
+uploads/
+
+# misc
+*.tsbuildinfo
+
+# Claude Code local settings (personal overrides, not team-wide)
+.claude/settings.local.json
