@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import { pinoHttp } from 'pino-http'
 import type { Server as SocketIOServer } from 'socket.io'
 import { env } from './env.js'
@@ -34,6 +35,17 @@ export type CuepointAppBundle = {
  */
 export function createCuepointAppBundle(): CuepointAppBundle {
   const app = express()
+
+  // Security headers — must be first, before cors/json
+  app.use(
+    helmet({
+      // Allow same-origin iframes (viewer/agenda embeds in controller)
+      frameguard: { action: 'sameorigin' },
+      // Content-Security-Policy is intentionally omitted here; the web app
+      // is served by Vite/a separate CDN which handles its own CSP.
+      contentSecurityPolicy: false,
+    })
+  )
 
   app.use(
     cors({

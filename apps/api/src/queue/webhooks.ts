@@ -5,8 +5,48 @@
  */
 import { Queue, Worker, type Job } from 'bullmq'
 import { createHmac } from 'node:crypto'
+import { lookup } from 'node:dns/promises'
 import { prisma } from '@cuepoint/db'
 import { logger } from '../logger.js'
+
+/**
+ * SSRF guard — resolves the hostname and rejects requests destined for private
+ * or loopback IP ranges so a user-supplied webhook URL cannot hit internal services.
+ *
+ * Covers: loopback (127.x, ::1), link-local (169.254.x.x, fe80::/10),
+ * RFC-1918 private (10.x, 172.16-31.x, 192.168.x), and the unspecified address.
+ */
+async function assertNotSsrf(urlStr: string): Promise<void> {
+  let hostname: string
+  try {
+    hostname = new URL(urlStr).hostname
+  } catch {
+    throw new Error(`Invalid webhook URL: ${urlStr}`)
+  }
+
+  // Strip IPv6 brackets
+  const bare = hostname.startsWith('[') && hostname.endsWith(']')
+    ? hostname.slice(1, -1)
+    : hostname
+
+  // Resolve to all addresses (A + AAAA)
+  let addresses: string[]
+  try {
+    const records = await lookup(bare, { all: true })
+    addresses = records.map((r) => r.address)
+  } catch {
+    throw new Error(`Could not resolve webhook hostname: ${hostname}`)
+  }
+
+  const privateV4 = /^(127\.|10\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/
+  const privateV6 = /^(::1|fc|fd|fe[89ab]|::$)/i
+
+  for (const addr of addresses) {
+    if (privateV4.test(addr) || privateV6.test(addr) || addr === '0.0.0.0' || addr === '::') {
+      throw new Error(`Webhook URL resolves to a private/internal address: ${addr}`)
+    }
+  }
+}
 
 const QUEUE_NAME = 'webhooks'
 
@@ -70,6 +110,9 @@ export function startWebhookWorker(connection: { host: string; port: number }) {
           if (wh.secret) {
             headers['X-Cuepoint-Signature'] = `sha256=${sign(wh.secret, body)}`
           }
+
+          // SSRF protection: ensure target is not a private/internal address
+          await assertNotSsrf(wh.url)
 
           const resp = await fetch(wh.url, { method: 'POST', headers, body, signal: AbortSignal.timeout(10_000) })
           if (!resp.ok) {

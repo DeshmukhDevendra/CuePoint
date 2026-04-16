@@ -6,6 +6,16 @@ import { Resend } from 'resend'
 import { env } from '../env.js'
 import { logger } from '../logger.js'
 
+/** Escape user-supplied strings before embedding in HTML to prevent XSS. */
+function he(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+}
+
 let resend: Resend | null = null
 
 function getResend(): Resend | null {
@@ -49,16 +59,16 @@ export async function sendInviteEmail(payload: InviteEmailPayload): Promise<bool
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:40px 20px">
   <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:40px;box-shadow:0 1px 3px rgba(0,0,0,.1)">
     <div style="width:40px;height:40px;background:#2563eb;border-radius:8px;margin-bottom:24px"></div>
-    <h1 style="font-size:22px;font-weight:700;color:#111;margin:0 0 8px">You're invited to ${payload.teamName}</h1>
+    <h1 style="font-size:22px;font-weight:700;color:#111;margin:0 0 8px">You&#x27;re invited to ${he(payload.teamName)}</h1>
     <p style="color:#6b7280;font-size:15px;margin:0 0 24px">
-      <strong>${payload.inviterName}</strong> has invited you to join <strong>${payload.teamName}</strong> as a <strong>${roleLabel}</strong> on CuePoint.
+      <strong>${he(payload.inviterName)}</strong> has invited you to join <strong>${he(payload.teamName)}</strong> as a <strong>${he(roleLabel)}</strong> on CuePoint.
     </p>
-    <a href="${payload.inviteUrl}"
+    <a href="${he(payload.inviteUrl)}"
        style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;font-size:15px">
       Accept invitation
     </a>
     <p style="color:#9ca3af;font-size:13px;margin:24px 0 0">
-      This invitation expires on ${expiryStr}. If you weren't expecting this, you can ignore this email.
+      This invitation expires on ${he(expiryStr)}. If you weren&#x27;t expecting this, you can ignore this email.
     </p>
     <hr style="border:none;border-top:1px solid #f3f4f6;margin:24px 0">
     <p style="color:#9ca3af;font-size:12px;margin:0">

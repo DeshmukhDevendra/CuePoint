@@ -16,7 +16,7 @@ roomsRouter.get('/', requireUser, async (req, res) => {
   const rooms = await prisma.room.findMany({
     where: { ownerId: req.user!.id, deletedAt: null },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, title: true, timezone: true, onAir: true, apiKey: true, createdAt: true },
+    select: { id: true, title: true, timezone: true, onAir: true, createdAt: true },
   })
   return res.json(rooms)
 })

@@ -43,6 +43,31 @@ export function makeAuthLimiter() {
   })
 }
 
+/**
+ * Limit for unauthenticated public write endpoints (guest room creation,
+ * audience question submission): 20 req / 10 min per IP.
+ * Prevents spam room creation and message flooding.
+ */
+export function makePublicWriteLimiter() {
+  const client = getRedis()
+  return rateLimit({
+    windowMs: 10 * 60_000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'too_many_requests' },
+    ...(client
+      ? {
+          store: new RedisStore({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            sendCommand: (...args: string[]) => (client as any).call(...args),
+            prefix: 'rl:public:',
+          }),
+        }
+      : {}),
+  })
+}
+
 /** Strict limit for external API v1: 60 req / min per API key */
 export function makeApiV1Limiter() {
   const client = getRedis()

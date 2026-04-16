@@ -12,8 +12,6 @@ interface RoomSummary {
   title: string
   timezone: string
   onAir: boolean
-  /** Omitted on guest-room create responses (public API strips secrets). */
-  apiKey?: string
   createdAt: string
 }
 

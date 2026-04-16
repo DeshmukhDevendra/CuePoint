@@ -13,6 +13,7 @@ import type { Server as SocketIOServer } from 'socket.io'
 import { hashPassword, verifyPassword } from '../auth/password.js'
 import { roomInclude } from '../lib/roomInclude.js'
 import { sanitizeRoomWire } from '../lib/sanitizeRoom.js'
+import { makePublicWriteLimiter } from '../lib/rateLimiter.js'
 
 function makeApiKey() {
   return `room_${randomBytes(16).toString('hex')}`
@@ -20,8 +21,9 @@ function makeApiKey() {
 
 export function makePublicRoomsRouter(io: SocketIOServer) {
   const router = Router()
+  const publicWriteLimiter = makePublicWriteLimiter()
 
-  router.post('/', async (req, res) => {
+  router.post('/', publicWriteLimiter, async (req, res) => {
     const parsed = CreateAnonymousRoomSchema.safeParse(req.body)
     if (!parsed.success) {
       return res.status(400).json({ error: 'invalid_input', details: parsed.error.flatten() })
@@ -76,7 +78,7 @@ export function makePublicRoomsRouter(io: SocketIOServer) {
   })
 
   /** Audience questions — no auth; optional SubmitQuestionConfig gate */
-  router.post('/:roomId/submit-question', async (req, res) => {
+  router.post('/:roomId/submit-question', publicWriteLimiter, async (req, res) => {
     const roomId = req.params['roomId']
     const room = await prisma.room.findFirst({ where: { id: roomId, deletedAt: null } })
     if (!room) return res.status(404).json({ error: 'not_found' })
